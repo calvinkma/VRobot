@@ -53,12 +53,11 @@ def stream_loop(session, tx, dryrun=False):
             angles[0] = angles[0] * -1 + 90
             angles[1] = angles[1] + 90
             if not dryrun:
-                print("not dryrun")
-                #tx.transmit(angles)
+                tx.transmit(angles)
             else:
                 print(angles)
             sys.stdout.flush()
-        time.sleep(0.20)
+        time.sleep(0.050)
 
 
 def exit(session):
