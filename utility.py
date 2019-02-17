@@ -36,4 +36,10 @@ def parse_args():
         default=115200
     )
 
+    parser.add_argument(
+        '--dryrun',
+        help='Get Oculus data and print without sending to MCU. Default: False',
+        default=False
+    )
+
     return vars(parser.parse_args())
