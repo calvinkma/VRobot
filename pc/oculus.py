@@ -52,7 +52,9 @@ def gamepad_loop():
     y_data = 0
     x_data = 0
     while 1:
-        event = inputs.get_gamepad()[-1]
+        events = inputs.get_gamepad()
+        sys.stdout.flush()
+        event = events[-1]
         if lock.acquire(True):
             if event.code == 'ABS_Y':
                 y_data = event.state
@@ -60,7 +62,7 @@ def gamepad_loop():
                 x_data = event.state
             lock.release()
             
-        time.sleep(0.010)
+        time.sleep(0.001)
 
 
 def stream_loop(session, tx, dryrun=False):
@@ -79,6 +81,8 @@ def stream_loop(session, tx, dryrun=False):
         communication
     '''
     
+    print_after = 10
+    count = 0
     print("Starting stream loop")
     yvel = 0
     xvel = 0
@@ -101,11 +105,14 @@ def stream_loop(session, tx, dryrun=False):
                 xvel = x_data * 127 / 32768.0 # Scale to int8_t
                 lock.release()
             
-            print("Pitch: {0}| Yaw: {1}| Yvel: {2} | Xvel: {3}".format(pitch, yaw, yvel, xvel))
+            if count % print_after == 0:
+                print("Pitch: {0}| Yaw: {1}| Yvel: {2} | Xvel: {3}".format(pitch, yaw, yvel, xvel))
+            
             if not dryrun:
                 tx.transmit(pitch=pitch, yaw=yaw, yvel=yvel, xvel=xvel)
             
             sys.stdout.flush()
+            count = count + 1
         time.sleep(0.010)
 
 

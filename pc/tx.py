@@ -3,6 +3,7 @@
 import serial
 import numpy as np
 import struct
+import time
 
 
 class Transmitter:
@@ -12,6 +13,8 @@ class Transmitter:
         self.send_pitch = False
         self.send_yvel = True
         self.send_xvel = False
+        self.prev_time = time.time()
+        self.time_threshold = 0.200
         
     def transmit(self, pitch, yaw, yvel, xvel):
         '''
@@ -31,8 +34,14 @@ class Transmitter:
             right in its frame of reference
         '''
         
+        cur_time = time.time()
+        if cur_time - self.prev_time > self.time_threshold:
+            self.prev_time = cur_time
+        else:
+            return
+        
         # Convert representations to binary
-        raw_data = bytes(''.encode())
+        raw_data = bytes(''.encode()) + struct.pack('<B', 0xFF)
         
         if self.send_yaw:
             raw_data = raw_data + struct.pack('<B', yaw)
