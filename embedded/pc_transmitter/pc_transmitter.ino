@@ -34,8 +34,7 @@ void loop() {
     if(Serial.available() > 0)
     {
         byte_to_send = Serial.read();
+        radio.openWritingPipe(slaveID);
+        bool rslt = radio.write(byte_to_send, sizeof(byte_to_send));
     }
-    
-    radio.openWritingPipe(slaveID);
-    bool rslt = radio.write(byte_to_send, sizeof(byte_to_send));
 }
