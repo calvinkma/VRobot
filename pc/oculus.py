@@ -48,14 +48,19 @@ def gamepad_loop():
     # Read from gamepad forever, and store the y data (vertical deviation of
     # left thumbstick) in the global variable, protected by a lock
     print("Starting gamepad loop")
-    global y_data
+    global y_data, x_data
     y_data = 0
+    x_data = 0
     while 1:
         event = inputs.get_gamepad()[-1]
-        if event.code == 'ABS_Y' and lock.acquire(True):
-            y_data = event.state
+        if lock.acquire(True):
+            if event.code == 'ABS_Y':
+                y_data = event.state
+            elif event.code == 'ABS_X':
+                x_data = event.state
             lock.release()
-        time.sleep(0.050)
+            
+        time.sleep(0.010)
 
 
 def stream_loop(session, tx, dryrun=False):
@@ -75,7 +80,8 @@ def stream_loop(session, tx, dryrun=False):
     '''
     
     print("Starting stream loop")
-    velocity = 0
+    yvel = 0
+    xvel = 0
     while True:
         # Query the HMD for the current tracking state.
         ts  = ovr.getTrackingState(session, ovr.getTimeInSeconds(), True)
@@ -91,15 +97,16 @@ def stream_loop(session, tx, dryrun=False):
             
             # Get data from gamepad thread
             if lock.acquire(True):
-                velocity = y_data * 127 / 32768.0 # Scale to int8_t
+                yvel = y_data * 127 / 32768.0 # Scale to int8_t
+                xvel = x_data * 127 / 32768.0 # Scale to int8_t
                 lock.release()
             
-            print("Pitch: {0}| Yaw: {1}| Yvel: {2}".format(pitch, yaw, velocity))
+            print("Pitch: {0}| Yaw: {1}| Yvel: {2} | Xvel: {3}".format(pitch, yaw, yvel, xvel))
             if not dryrun:
-                tx.transmit(angles, velocity)
+                tx.transmit(pitch=pitch, yaw=yaw, yvel=yvel, xvel=xvel)
             
             sys.stdout.flush()
-        time.sleep(0.050)
+        time.sleep(0.010)
 
 
 def exit(session):
@@ -124,7 +131,8 @@ def main():
     baud = args['baud']
     dryrun = args['dryrun']
 
-    if 'microsoft' not in str(inputs.devices.gamepads[0]).lower():
+    gp = inputs.devices.gamepads
+    if len(gp) == 0 or 'microsoft' not in str(gp[0]).lower():
         print("Xbox controller not detected")
         exit(session)
         return
