@@ -61,8 +61,6 @@ def gamepad_loop():
             elif event.code == 'ABS_X':
                 x_data = event.state
             lock.release()
-            
-        time.sleep(0.001)
 
 
 def stream_loop(session, tx, dryrun=False):
