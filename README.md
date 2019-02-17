@@ -15,17 +15,17 @@ The Arduino IDE is required to program the microcontrollers, which are an Arduin
 - inputs
 
 # Running the PC-side script
-```Python
+```Bash
 python oculus.py
 ```
 
 # Command-line arguments
 The PC-side script can be run from a terminal. It supports certain arguments related to communication with the microcontroller, which can be viewed by running:
-```Python
+```Bash
 python oculus.py --help
 ```
 
 For example, we can specify a COM port and baud rate like so:
-```Python
+```Bash
 python oculus.py --port=COM24 --baud=230400
 ```
