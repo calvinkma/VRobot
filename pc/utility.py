@@ -32,8 +32,8 @@ def parse_args():
     
     parser.add_argument(
         '--baud',
-        help='Serial port symbol rate. Default: 115200',
-        default=115200
+        help='Serial port symbol rate. Default: 230400',
+        default=230400
     )
 
     parser.add_argument(
