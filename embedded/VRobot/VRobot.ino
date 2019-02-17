@@ -6,7 +6,7 @@
 Servo servo;  // create servo object to control a servo
 RF24 radio(7, 2); // CE, CSN
 const byte address[6] = "00001";
-int ackData[2] = {12,23};
+int ackData[1] = {12};
 int text = 0xFF;
 int Left_motor_go=0;
 int Left_motor_back=1; 
