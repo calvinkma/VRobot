@@ -11,7 +11,9 @@ import sys
 import time
 import serial
 import numpy as np
+from threading import Thread, Lock
 import ovr
+import inputs
 
 # Local files
 import utility as util
@@ -26,6 +28,34 @@ def init_oculus():
     session, luid = ovr.create()
     print("Connected to Oculus")
     return session
+
+
+def clamp(n, min, max):
+    '''
+    n is returned if it is in range [min, max], otherwise the closest of min and
+    max to n is returned
+    '''
+    
+    return min if n < min else max if n > max else n
+
+
+lock = Lock()
+def gamepad_loop():
+    '''
+    Reads from the Xbox controller
+    '''
+    
+    # Read from gamepad forever, and store the y data (vertical deviation of
+    # left thumbstick) in the global variable, protected by a lock
+    print("Starting gamepad loop")
+    global y_data
+    y_data = 0
+    while 1:
+        event = inputs.get_gamepad()[-1]
+        if event.code == 'ABS_Y' and lock.acquire(True):
+            y_data = event.state
+            lock.release()
+        time.sleep(0.050)
 
 
 def stream_loop(session, tx, dryrun=False):
@@ -44,18 +74,30 @@ def stream_loop(session, tx, dryrun=False):
         communication
     '''
     
+    print("Starting stream loop")
+    velocity = 0
     while True:
         # Query the HMD for the current tracking state.
         ts  = ovr.getTrackingState(session, ovr.getTimeInSeconds(), True)
         if ts.StatusFlags & (ovr.Status_OrientationTracked | ovr.Status_PositionTracked):
             pose = ts.HeadPose
             angles = np.array(pose.ThePose.Orientation.getEulerAngles())* 180 / np.pi
-            angles[0] = angles[0] * -1 + 90
-            angles[1] = angles[1] + 90
+            pitch = np.round(angles[0] * -1 + 90)
+            yaw = np.round(angles[1] + 90)
+            
+            # Don't allow values outside the range of the servos
+            pitch = clamp(pitch, 0, 180)
+            yaw = clamp(yaw, 0, 180)
+            
+            # Get data from gamepad thread
+            if lock.acquire(True):
+                velocity = y_data * 127 / 32768.0 # Scale to int8_t
+                lock.release()
+            
+            print("Pitch: {0}| Yaw: {1}| Yvel: {2}".format(pitch, yaw, velocity))
             if not dryrun:
-                tx.transmit(angles)
-            else:
-                print(angles)
+                tx.transmit(angles, velocity)
+            
             sys.stdout.flush()
         time.sleep(0.050)
 
@@ -69,6 +111,7 @@ def exit(session):
     session : pointer to HmdDesc
         Interface for the head-moounted device
     '''
+    
     ovr.destroy(session)
     ovr.shutdown()
 
@@ -80,23 +123,32 @@ def main():
     port = args['port']
     baud = args['baud']
     dryrun = args['dryrun']
-    if dryrun:
-        try:
-            stream_loop(session, -1, True)
-        except KeyboardInterrupt as e:
-            print("Interrupted: {0}".format(e))
-            exit(session)
+
+    if 'microsoft' not in str(inputs.devices.gamepads[0]).lower():
+        print("Xbox controller not detected")
+        exit(session)
+        return
     
-    num_tries = 0
-    while(True):
-        try:
-            with serial.Serial(port, baud, timeout=0) as ser:
-                print("Connected to embedded")
-                tx = Transmitter(ser)
-                stream_loop(session, tx)
+    # Read from the gamepad in a different thread since the inputs library
+    # blocks program execution
+    try:
+        gamepad_thread = Thread(target=gamepad_loop)
+        gamepad_thread.daemon = True
+        gamepad_thread.start()
+    
+        # If we are developing, we don't worry about the serial port
+        if dryrun:
+            stream_loop(session, -1, True)
         
-        except serial.serialutil.SerialException as e:
+        num_tries = 0
+        while(True):
             try:
+                with serial.Serial(port, baud, timeout=0) as ser:
+                    print("Connected to embedded")
+                    tx = Transmitter(ser)
+                    stream_loop(session, tx)
+            
+            except serial.serialutil.SerialException as e:
                 if(num_tries % 100 == 0):
                     if(str(e).find("FileNotFoundError")):
                         print("Port not found. Retrying...(attempt {0})".format(num_tries))
@@ -105,13 +157,12 @@ def main():
                 
                 time.sleep(0.01)
                 num_tries = num_tries + 1
-            except KeyboardInterrupt as e:
-                print("Interrupted: {0}".format(e))
-                break
-        except KeyboardInterrupt as e:
-            print("Interrupted: {0}".format(e))
-            break
+    except (KeyboardInterrupt, SystemExit) as e:
+        print("Interrupted: {0}".format(e))
+        pass
+
     exit(session)
+
 
 if __name__ == "__main__":
     main()
