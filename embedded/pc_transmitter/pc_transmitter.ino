@@ -23,10 +23,10 @@ const uint64_t slaveID = 0xE8E8F0F0E1LL;
 RF24 radio(CE_PIN, CSN_PIN); // Create a Radio
 
 void setup() {
-    Serial.begin(230400);
+    Serial.begin(115200);
     radio.begin();
     radio.setDataRate(RF24_250KBPS);
-    radio.setRetries(3,2); // delay, count
+    //radio.setRetries(3,2); // delay, count
 }
 
 void loop() {
@@ -35,6 +35,6 @@ void loop() {
     {
         byte_to_send = Serial.read();
         radio.openWritingPipe(slaveID);
-        bool rslt = radio.write(byte_to_send, sizeof(byte_to_send));
+        bool rslt = radio.write(&byte_to_send, sizeof(byte_to_send));
     }
 }
